@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BNPL True Cost Calculator</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1a1d23;
+    --muted: #6b7280;
+    --border: #e3e6ea;
+    --accent: #2563eb;
+    --accent-text: #ffffff;
+    --bad: #dc2626;
+    --good: #16a34a;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --bg: #14161a;
+      --card: #1e2126;
+      --text: #e8eaed;
+      --muted: #9aa1ab;
+      --border: #2c3036;
+      --accent: #4f8cff;
+      --accent-text: #0b0d10;
+      --bad: #f87171;
+      --good: #4ade80;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161a;
+    --card: #1e2126;
+    --text: #e8eaed;
+    --muted: #9aa1ab;
+    --border: #2c3036;
+    --accent: #4f8cff;
+    --accent-text: #0b0d10;
+    --bad: #f87171;
+    --good: #4ade80;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 24px 16px 48px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.35rem; margin: 4px 0 4px; }
+  .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 14px 0 6px;
+  }
+  label:first-child { margin-top: 0; }
+  input[type="number"] {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 1rem;
+  }
+  .toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .toggle button {
+    flex: 1;
+    padding: 9px 0;
+    border: none;
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .toggle button.active {
+    background: var(--accent);
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  .hint { color: var(--muted); font-size: 0.78rem; margin-top: 4px; }
+  .results { display: grid; gap: 10px; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .row:last-child { border-bottom: none; }
+  .row .label { color: var(--muted); font-size: 0.88rem; }
+  .row .value { font-weight: 700; font-size: 1.05rem; text-align: right; }
+  .value.bad { color: var(--bad); }
+  .value.good { color: var(--good); }
+  .big {
+    text-align: center;
+    padding: 4px 0 14px;
+  }
+  .big .num { font-size: 2rem; font-weight: 800; }
+  .big .num.bad { color: var(--bad); }
+  .big .num.good { color: var(--good); }
+  .big .cap { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
+  footer { color: var(--muted); font-size: 0.75rem; text-align: center; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<h1>BNPL True Cost Calculator</h1>
+<div class="sub">See the real price of a device bought on Buy-Now-Pay-Later, vs paying market price.</div>
+
+<div class="card">
+  <label for="marketPrice">Market price of the device (KES)</label>
+  <input type="number" id="marketPrice" placeholder="e.g. 15000" inputmode="decimal">
+
+  <label for="deposit">BNPL deposit amount</label>
+  <input type="number" id="deposit" placeholder="e.g. 1500" inputmode="decimal">
+
+  <label>Installment frequency</label>
+  <div class="toggle">
+    <button id="btnDaily" class="active">Daily</button>
+    <button id="btnWeekly">Weekly</button>
+  </div>
+
+  <label id="installLabel" for="installAmount">Daily deposit amount</label>
+  <input type="number" id="installAmount" placeholder="e.g. 50" inputmode="decimal">
+
+  <label for="timeframe">Payment timeframe (days)</label>
+  <input type="number" id="timeframe" value="365" inputmode="numeric">
+  <div class="hint">Total number of days the plan runs for — usually 365.</div>
+</div>
+
+<div class="card" id="resultsCard" style="display:none;">
+  <div class="big">
+    <div class="num" id="totalPaid">–</div>
+    <div class="cap">Total you'll actually pay</div>
+  </div>
+  <div class="results">
+    <div class="row"><span class="label"># of installments</span><span class="value" id="numInstallments">–</span></div>
+    <div class="row"><span class="label">Total installments paid</span><span class="value" id="totalInstallments">–</span></div>
+    <div class="row"><span class="label">Extra paid vs market price</span><span class="value" id="extraPaid">–</span></div>
+    <div class="row"><span class="label">Deviation from market price</span><span class="value" id="deviation">–</span></div>
+    <div class="row"><span class="label">Effective interest on financed amount</span><span class="value" id="interestFinanced">–</span></div>
+    <div class="row"><span class="label">Annualised interest rate (APR-style)</span><span class="value" id="apr">–</span></div>
+  </div>
+</div>
+
+<footer>Figures are illustrative — actual BNPL terms may include fees not entered here.</footer>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const fmt = n => isFinite(n) ? n.toLocaleString('en-KE', {maximumFractionDigits: 2}) : '–';
+
+  let freq = 'daily';
+  const btnDaily = $('btnDaily'), btnWeekly = $('btnWeekly'), installLabel = $('installLabel');
+
+  btnDaily.addEventListener('click', () => setFreq('daily'));
+  btnWeekly.addEventListener('click', () => setFreq('weekly'));
+
+  function setFreq(f) {
+    freq = f;
+    btnDaily.classList.toggle('active', f === 'daily');
+    btnWeekly.classList.toggle('active', f === 'weekly');
+    installLabel.textContent = f === 'daily' ? 'Daily deposit amount' : 'Weekly deposit amount';
+    calculate();
+  }
+
+  ['marketPrice','deposit','installAmount','timeframe'].forEach(id => {
+    $(id).addEventListener('input', calculate);
+  });
+
+  function calculate() {
+    const marketPrice = parseFloat($('marketPrice').value);
+    const deposit = parseFloat($('deposit').value) || 0;
+    const installAmount = parseFloat($('installAmount').value);
+    const timeframeDays = parseFloat($('timeframe').value) || 365;
+
+    if (!marketPrice || marketPrice <= 0 || !installAmount || installAmount <= 0) {
+      $('resultsCard').style.display = 'none';
+      return;
+    }
+
+    const numInstallments = freq === 'daily' ? timeframeDays : Math.round(timeframeDays / 7);
+    const totalInstallmentsPaid = numInstallments * installAmount;
+    const totalPaid = deposit + totalInstallmentsPaid;
+    const extraPaid = totalPaid - marketPrice;
+    const deviationPct = (totalPaid - marketPrice) / marketPrice * 100;
+
+    // Financed amount = what's actually being "borrowed" (market price minus deposit)
+    const financedAmount = Math.max(marketPrice - deposit, 0);
+    const interestPct = financedAmount > 0 ? (extraPaid / financedAmount) * 100 : NaN;
+    const annualisedPct = financedAmount > 0 ? interestPct * (365 / timeframeDays) : NaN;
+
+    $('resultsCard').style.display = 'block';
+
+    const totalPaidEl = $('totalPaid');
+    totalPaidEl.textContent = 'KES ' + fmt(totalPaid);
+    totalPaidEl.className = 'num ' + (extraPaid > 0 ? 'bad' : extraPaid < 0 ? 'good' : '');
+
+    $('numInstallments').textContent = numInstallments + (freq === 'daily' ? ' days' : ' weeks');
+    $('totalInstallments').textContent = 'KES ' + fmt(totalInstallmentsPaid);
+
+    const extraEl = $('extraPaid');
+    extraEl.textContent = (extraPaid >= 0 ? '+' : '') + 'KES ' + fmt(extraPaid);
+    extraEl.className = 'value ' + (extraPaid > 0 ? 'bad' : extraPaid < 0 ? 'good' : '');
+
+    const devEl = $('deviation');
+    devEl.textContent = (deviationPct >= 0 ? '+' : '') + fmt(deviationPct) + '%';
+    devEl.className = 'value ' + (deviationPct > 0 ? 'bad' : deviationPct < 0 ? 'good' : '');
+
+    const intEl = $('interestFinanced');
+    intEl.textContent = isFinite(interestPct) ? fmt(interestPct) + '%' : 'n/a (no deposit gap)';
+    intEl.className = 'value ' + (interestPct > 0 ? 'bad' : '');
+
+    const aprEl = $('apr');
+    aprEl.textContent = isFinite(annualisedPct) ? fmt(annualisedPct) + '% / yr' : 'n/a';
+    aprEl.className = 'value ' + (annualisedPct > 0 ? 'bad' : '');
+  }
+
+  calculate();
+</script>
+</body>
+</html>
